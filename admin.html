@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Grand Malabar Furniture</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-row">
+    <a href="index.html" class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="18" width="32" height="4" stroke="#161615" stroke-width="1.6"/>
+        <path d="M6 22V32M34 22V32" stroke="#161615" stroke-width="1.6"/>
+        <path d="M4 18V13C4 10.7909 5.79086 9 8 9H32C34.2091 9 36 10.7909 36 13V18" stroke="#161615" stroke-width="1.6"/>
+      </svg>
+      <span class="brand-name">Grand Malabar Furniture — Admin</span>
+    </a>
+    <button class="btn btn-outline" id="logoutBtn" type="button" style="display:none;">Log out</button>
+  </div>
+</header>
+
+<!-- LOGIN -->
+<div class="admin-login" id="loginView">
+  <h2>Shop admin</h2>
+  <p>Log in with the admin email and password you created in Firebase Authentication.</p>
+  <div id="loginStatus"></div>
+  <form id="loginForm" style="display:flex; flex-direction:column; gap:14px;">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" required>
+    </div>
+    <button class="btn" type="submit">Log in</button>
+  </form>
+</div>
+
+<!-- ADMIN -->
+<div class="admin-shell" id="adminView" style="display:none;">
+  <div class="setup-note">
+    First time here? Open <code>firebase-config.js</code> and paste your Firebase project keys — see README.md. Everything you save below updates the live website immediately.
+  </div>
+
+  <div class="admin-tabs">
+    <button class="active" data-tab="offers">Offers</button>
+    <button data-tab="products">Products</button>
+  </div>
+
+  <!-- OFFERS TAB -->
+  <div id="tab-offers">
+    <div class="toolbar">
+      <h3 style="margin:0;">Offers</h3>
+      <button class="btn" id="addOfferBtn" type="button">+ Add offer</button>
+    </div>
+    <div id="offerStatus"></div>
+    <div id="offerList"></div>
+  </div>
+
+  <!-- PRODUCTS TAB -->
+  <div id="tab-products" style="display:none;">
+    <div class="toolbar">
+      <h3 style="margin:0;">Products</h3>
+      <button class="btn" id="addProductBtn" type="button">+ Add product</button>
+    </div>
+    <div id="productStatus"></div>
+    <div id="productList"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+const auth = firebase.auth();
+
+/* ---------- Auth ---------- */
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const statusEl = document.getElementById('loginStatus');
+  statusEl.innerHTML = '';
+  auth.signInWithEmailAndPassword(email, password).catch(err => {
+    statusEl.innerHTML = `<div class="status-msg error">${escapeHtml(err.message)}</div>`;
+  });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+
+auth.onAuthStateChanged(user => {
+  const loginView = document.getElementById('loginView');
+  const adminView = document.getElementById('adminView');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (user) {
+    loginView.style.display = 'none';
+    adminView.style.display = 'block';
+    logoutBtn.style.display = 'inline-flex';
+    startOffersListener();
+    startProductsListener();
+  } else {
+    loginView.style.display = 'block';
+    adminView.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+});
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.admin-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.admin-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-offers').style.display = btn.dataset.tab === 'offers' ? 'block' : 'none';
+    document.getElementById('tab-products').style.display = btn.dataset.tab === 'products' ? 'block' : 'none';
+  });
+});
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function showStatus(el, msg, isError) {
+  el.innerHTML = `<div class="status-msg ${isError ? 'error' : 'ok'}">${escapeHtml(msg)}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
+}
+
+/* ==================== OFFERS ==================== */
+let offersStarted = false;
+function startOffersListener() {
+  if (offersStarted) return;
+  offersStarted = true;
+  db.collection('offers').orderBy('createdAt', 'desc').onSnapshot(snap => {
+    const offers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderOfferList(offers);
+  }, err => {
+    document.getElementById('offerList').innerHTML = `<div class="status-msg error">Could not load offers: ${escapeHtml(err.message)}. Check Firestore setup / rules in README.md.</div>`;
+  });
+}
+
+function renderOfferList(offers) {
+  const list = document.getElementById('offerList');
+  if (offers.length === 0) {
+    list.innerHTML = `<div class="empty-state">No offers yet. Click "+ Add offer" to create one.</div>`;
+    return;
+  }
+  list.innerHTML = offers.map(o => offerCardHtml(o)).join('');
+  offers.forEach(o => wireOfferCard(o));
+}
+
+function offerCardHtml(o) {
+  return `
+  <div class="admin-card" data-id="${o.id}">
+    <div class="row-top">
+      <span class="pill ${o.active !== false ? 'on' : ''}" data-role="activePill">${o.active !== false ? 'Active' : 'Hidden'}</span>
+      <div style="display:flex; gap:8px;">
+        <button class="icon-btn" data-role="toggleActive">${o.active !== false ? 'Hide' : 'Show'}</button>
+        <button class="icon-btn danger" data-role="delete">Delete</button>
+      </div>
+    </div>
+    <div class="field-grid">
+      <div class="field"><label>Title (English)</label><input data-role="title" value="${escapeHtml(o.title)}"></div>
+      <div class="field"><label>Title (Malayalam)</label><input data-role="title_ml" value="${escapeHtml(o.title_ml)}"></div>
+    </div>
+    <div class="field-grid">
+      <div class="field"><label>Description (English)</label><input data-role="description" value="${escapeHtml(o.description)}"></div>
+      <div class="field"><label>Description (Malayalam)</label><input data-role="description_ml" value="${escapeHtml(o.description_ml)}"></div>
+    </div>
+    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+      <button class="btn" data-role="save">Save</button>
+    </div>
+  </div>`;
+}
+
+function wireOfferCard(o) {
+  const card = document.querySelector(`.admin-card[data-id="${o.id}"]`);
+  if (!card || card.dataset.wired) return;
+  card.dataset.wired = '1';
+  const statusEl = document.getElementById('offerStatus');
+
+  card.querySelector('[data-role="save"]').addEventListener('click', () => {
+    const data = {
+      title: card.querySelector('[data-role="title"]').value.trim(),
+      title_ml: card.querySelector('[data-role="title_ml"]').value.trim(),
+      description: card.querySelector('[data-role="description"]').value.trim(),
+      description_ml: card.querySelector('[data-role="description_ml"]').value.trim(),
+    };
+    db.collection('offers').doc(o.id).update(data)
+      .then(() => showStatus(statusEl, 'Offer saved — live on the website now.'))
+      .catch(err => showStatus(statusEl, err.message, true));
+  });
+
+  card.querySelector('[data-role="toggleActive"]').addEventListener('click', () => {
+    db.collection('offers').doc(o.id).update({ active: !(o.active !== false) })
+      .then(() => showStatus(statusEl, 'Offer visibility updated.'))
+      .catch(err => showStatus(statusEl, err.message, true));
+  });
+
+  card.querySelector('[data-role="delete"]').addEventListener('click', () => {
+    if (!confirm('Delete this offer? This cannot be undone.')) return;
+    db.collection('offers').doc(o.id).delete()
+      .then(() => showStatus(statusEl, 'Offer deleted.'))
+      .catch(err => showStatus(statusEl, err.message, true));
+  });
+}
+
+document.getElementById('addOfferBtn').addEventListener('click', () => {
+  const statusEl = document.getElementById('offerStatus');
+  db.collection('offers').add({
+    title: 'New offer',
+    title_ml: '',
+    description: '',
+    description_ml: '',
+    active: true,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => showStatus(statusEl, 'Offer added — edit the details below.'))
+    .catch(err => showStatus(statusEl, err.message, true));
+});
+
+/* ==================== PRODUCTS ==================== */
+let productsStarted = false;
+function startProductsListener() {
+  if (productsStarted) return;
+  productsStarted = true;
+  db.collection('products').orderBy('createdAt', 'desc').onSnapshot(snap => {
+    const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderProductList(products);
+  }, err => {
+    document.getElementById('productList').innerHTML = `<div class="status-msg error">Could not load products: ${escapeHtml(err.message)}. Check Firestore setup / rules in README.md.</div>`;
+  });
+}
+
+const CATEGORY_OPTIONS = [
+  ['Sofas', 'സോഫകൾ'], ['Beds', 'കട്ടിലുകൾ'], ['Dining', 'ഡൈനിംഗ്'],
+  ['Wardrobes', 'അലമാരകൾ'], ['Office', 'ഓഫീസ്']
+];
+
+function renderProductList(products) {
+  const list = document.getElementById('productList');
+  if (products.length === 0) {
+    list.innerHTML = `<div class="empty-state">No products yet. Click "+ Add product" to create one.</div>`;
+    return;
+  }
+  list.innerHTML = products.map(p => productCardHtml(p)).join('');
+  products.forEach(p => wireProductCard(p));
+}
+
+function productCardHtml(p) {
+  const catOptions = CATEGORY_OPTIONS.map(([en, ml]) =>
+    `<option value="${en}" ${p.category === en ? 'selected' : ''}>${en}</option>`).join('');
+  return `
+  <div class="admin-card" data-id="${p.id}">
+    <div class="row-top">
+      <span class="pill ${p.featured ? 'on' : ''}" data-role="featuredPill">${p.featured ? 'Featured' : 'Standard'}</span>
+      <div style="display:flex; gap:8px;">
+        <button class="icon-btn" data-role="toggleFeatured">${p.featured ? 'Unfeature' : 'Feature'}</button>
+        <button class="icon-btn danger" data-role="delete">Delete</button>
+      </div>
+    </div>
+    <div class="field-grid">
+      <div class="field"><label>Name (English)</label><input data-role="name" value="${escapeHtml(p.name)}"></div>
+      <div class="field"><label>Name (Malayalam)</label><input data-role="name_ml" value="${escapeHtml(p.name_ml)}"></div>
+    </div>
+    <div class="field-grid">
+      <div class="field"><label>Category</label><select data-role="category">${catOptions}</select></div>
+      <div class="field"><label>Price (₹)</label><input data-role="price" type="number" min="0" value="${p.price || ''}"></div>
+    </div>
+    <div class="field-grid">
+      <div class="field"><label>Description (English)</label><textarea data-role="description">${escapeHtml(p.description)}</textarea></div>
+      <div class="field"><label>Description (Malayalam)</label><textarea data-role="description_ml">${escapeHtml(p.description_ml)}</textarea></div>
+    </div>
+    <div class="field-grid full">
+      <div class="field"><label>Image URL (optional — leave blank to show a placeholder icon)</label><input data-role="imageUrl" value="${escapeHtml(p.imageUrl)}" placeholder="https://..."></div>
+    </div>
+    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+      <button class="btn" data-role="save">Save</button>
+    </div>
+  </div>`;
+}
+
+function wireProductCard(p) {
+  const card = document.querySelector(`#productList .admin-card[data-id="${p.id}"]`);
+  if (!card || card.dataset.wired) return;
+  card.dataset.wired = '1';
+  const statusEl = document.getElementById('productStatus');
+
+  card.querySelector('[data-role="save"]').addEventListener('click', () => {
+    const category = card.querySelector('[data-role="category"]').value;
+    const catMl = (CATEGORY_OPTIONS.find(c => c[0] === category) || [,''])[1];
+    const data = {
+      name: card.querySelector('[data-role="name"]').value.trim(),
+      name_ml: card.querySelector('[data-role="name_ml"]').value.trim(),
+      category,
+      category_ml: catMl,
+      price: Number(card.querySelector('[data-role="price"]').value) || 0,
+      description: card.querySelector('[data-role="description"]').value.trim(),
+      description_ml: card.querySelector('[data-role="description_ml"]').value.trim(),
+      imageUrl: card.querySelector('[data-role="imageUrl"]').value.trim(),
+    };
+    db.collection('products').doc(p.id).update(data)
+      .then(() => showStatus(statusEl, 'Product saved — live on the website now.'))
+      .catch(err => showStatus(statusEl, err.message, true));
+  });
+
+  card.querySelector('[data-role="toggleFeatured"]').addEventListener('click', () => {
+    db.collection('products').doc(p.id).update({ featured: !p.featured })
+      .then(() => showStatus(statusEl, 'Product updated.'))
+      .catch(err => showStatus(statusEl, err.message, true));
+  });
+
+  card.querySelector('[data-role="delete"]').addEventListener('click', () => {
+    if (!confirm('Delete this product? This cannot be undone.')) return;
+    db.collection('products').doc(p.id).delete()
+      .then(() => showStatus(statusEl, 'Product deleted.'))
+      .catch(err => showStatus(statusEl, err.message, true));
+  });
+}
+
+document.getElementById('addProductBtn').addEventListener('click', () => {
+  const statusEl = document.getElementById('productStatus');
+  db.collection('products').add({
+    name: 'New product',
+    name_ml: '',
+    category: 'Sofas',
+    category_ml: 'സോഫകൾ',
+    price: 0,
+    description: '',
+    description_ml: '',
+    imageUrl: '',
+    featured: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => showStatus(statusEl, 'Product added — edit the details below.'))
+    .catch(err => showStatus(statusEl, err.message, true));
+});
+</script>
+</body>
+</html>
