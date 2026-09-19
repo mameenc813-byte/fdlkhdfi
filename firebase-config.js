@@ -8,12 +8,12 @@
 */
 
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY_HERE",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_YOUR_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+  apiKey: "AIzaSyD5OKJUQ8zJY6uAMos4Yc2gzxz_6Ykuaoo",
+  authDomain: "malabar-furniture.firebaseapp.com",
+  projectId: "malabar-furniture",
+  storageBucket: "malabar-furniture.firebasestorage.app",
+  messagingSenderId: "956337917833",
+  appId: "1:956337917833:web:4d80898f3869f4e76adb58"
 };
 
 // Do not edit below this line.
