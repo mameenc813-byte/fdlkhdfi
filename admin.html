@@ -6,7 +6,7 @@
 <title>Admin — Grand Malabar Furniture</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -164,13 +164,11 @@ function offerCardHtml(o) {
         <button class="icon-btn danger" data-role="delete">Delete</button>
       </div>
     </div>
-    <div class="field-grid">
-      <div class="field"><label>Title (English)</label><input data-role="title" value="${escapeHtml(o.title)}"></div>
-      <div class="field"><label>Title (Malayalam)</label><input data-role="title_ml" value="${escapeHtml(o.title_ml)}"></div>
+    <div class="field-grid full">
+      <div class="field"><label>Offer title</label><input data-role="title" value="${escapeHtml(o.title)}"></div>
     </div>
-    <div class="field-grid">
-      <div class="field"><label>Description (English)</label><input data-role="description" value="${escapeHtml(o.description)}"></div>
-      <div class="field"><label>Description (Malayalam)</label><input data-role="description_ml" value="${escapeHtml(o.description_ml)}"></div>
+    <div class="field-grid full">
+      <div class="field"><label>Description</label><input data-role="description" value="${escapeHtml(o.description)}"></div>
     </div>
     <div style="margin-top:12px; display:flex; justify-content:flex-end;">
       <button class="btn" data-role="save">Save</button>
@@ -187,9 +185,7 @@ function wireOfferCard(o) {
   card.querySelector('[data-role="save"]').addEventListener('click', () => {
     const data = {
       title: card.querySelector('[data-role="title"]').value.trim(),
-      title_ml: card.querySelector('[data-role="title_ml"]').value.trim(),
       description: card.querySelector('[data-role="description"]').value.trim(),
-      description_ml: card.querySelector('[data-role="description_ml"]').value.trim(),
     };
     db.collection('offers').doc(o.id).update(data)
       .then(() => showStatus(statusEl, 'Offer saved — live on the website now.'))
@@ -214,9 +210,7 @@ document.getElementById('addOfferBtn').addEventListener('click', () => {
   const statusEl = document.getElementById('offerStatus');
   db.collection('offers').add({
     title: 'New offer',
-    title_ml: '',
     description: '',
-    description_ml: '',
     active: true,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(() => showStatus(statusEl, 'Offer added — edit the details below.'))
@@ -236,10 +230,7 @@ function startProductsListener() {
   });
 }
 
-const CATEGORY_OPTIONS = [
-  ['Sofas', 'സോഫകൾ'], ['Beds', 'കട്ടിലുകൾ'], ['Dining', 'ഡൈനിംഗ്'],
-  ['Wardrobes', 'അലമാരകൾ'], ['Office', 'ഓഫീസ്']
-];
+const CATEGORY_OPTIONS = ['Sofas', 'Beds', 'Dining', 'Wardrobes', 'Office'];
 
 function renderProductList(products) {
   const list = document.getElementById('productList');
@@ -252,8 +243,8 @@ function renderProductList(products) {
 }
 
 function productCardHtml(p) {
-  const catOptions = CATEGORY_OPTIONS.map(([en, ml]) =>
-    `<option value="${en}" ${p.category === en ? 'selected' : ''}>${en}</option>`).join('');
+  const catOptions = CATEGORY_OPTIONS.map(c =>
+    `<option value="${c}" ${p.category === c ? 'selected' : ''}>${c}</option>`).join('');
   return `
   <div class="admin-card" data-id="${p.id}">
     <div class="row-top">
@@ -263,17 +254,15 @@ function productCardHtml(p) {
         <button class="icon-btn danger" data-role="delete">Delete</button>
       </div>
     </div>
-    <div class="field-grid">
-      <div class="field"><label>Name (English)</label><input data-role="name" value="${escapeHtml(p.name)}"></div>
-      <div class="field"><label>Name (Malayalam)</label><input data-role="name_ml" value="${escapeHtml(p.name_ml)}"></div>
+    <div class="field-grid full">
+      <div class="field"><label>Product name</label><input data-role="name" value="${escapeHtml(p.name)}"></div>
     </div>
     <div class="field-grid">
       <div class="field"><label>Category</label><select data-role="category">${catOptions}</select></div>
       <div class="field"><label>Price (₹)</label><input data-role="price" type="number" min="0" value="${p.price || ''}"></div>
     </div>
-    <div class="field-grid">
-      <div class="field"><label>Description (English)</label><textarea data-role="description">${escapeHtml(p.description)}</textarea></div>
-      <div class="field"><label>Description (Malayalam)</label><textarea data-role="description_ml">${escapeHtml(p.description_ml)}</textarea></div>
+    <div class="field-grid full">
+      <div class="field"><label>Description</label><textarea data-role="description">${escapeHtml(p.description)}</textarea></div>
     </div>
     <div class="field-grid full">
       <div class="field"><label>Image URL (optional — leave blank to show a placeholder icon)</label><input data-role="imageUrl" value="${escapeHtml(p.imageUrl)}" placeholder="https://..."></div>
@@ -291,16 +280,11 @@ function wireProductCard(p) {
   const statusEl = document.getElementById('productStatus');
 
   card.querySelector('[data-role="save"]').addEventListener('click', () => {
-    const category = card.querySelector('[data-role="category"]').value;
-    const catMl = (CATEGORY_OPTIONS.find(c => c[0] === category) || [,''])[1];
     const data = {
       name: card.querySelector('[data-role="name"]').value.trim(),
-      name_ml: card.querySelector('[data-role="name_ml"]').value.trim(),
-      category,
-      category_ml: catMl,
+      category: card.querySelector('[data-role="category"]').value,
       price: Number(card.querySelector('[data-role="price"]').value) || 0,
       description: card.querySelector('[data-role="description"]').value.trim(),
-      description_ml: card.querySelector('[data-role="description_ml"]').value.trim(),
       imageUrl: card.querySelector('[data-role="imageUrl"]').value.trim(),
     };
     db.collection('products').doc(p.id).update(data)
@@ -326,12 +310,9 @@ document.getElementById('addProductBtn').addEventListener('click', () => {
   const statusEl = document.getElementById('productStatus');
   db.collection('products').add({
     name: 'New product',
-    name_ml: '',
     category: 'Sofas',
-    category_ml: 'സോഫകൾ',
     price: 0,
     description: '',
-    description_ml: '',
     imageUrl: '',
     featured: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
