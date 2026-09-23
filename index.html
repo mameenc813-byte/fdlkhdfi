@@ -290,6 +290,31 @@ document.getElementById('enquireForm').addEventListener('submit', (e) => {
   window.open(`https://wa.me/919048318677?text=${text}`, '_blank');
 });
 
+
+/* ---------- Scroll reveal animations ---------- */
+(function initRevealMotion() {
+  const targets = document.querySelectorAll(
+    '#products .section-head, #catGrid, #prodGrid, #about .section-head, .trust-grid, #contact .section-head, .contact-grid, footer'
+  );
+  targets.forEach((el, i) => {
+    el.classList.add('reveal');
+    el.style.transitionDelay = Math.min(i * 60, 300) + 'ms';
+  });
+  if (!('IntersectionObserver' in window)) {
+    targets.forEach(el => el.classList.add('is-visible'));
+    return;
+  }
+  const observer = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        obs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  targets.forEach(el => observer.observe(el));
+})();
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
